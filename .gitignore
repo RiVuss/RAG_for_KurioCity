@@ -1,0 +1,4 @@
+nl_full_all_columns.csv
+*.csv
+qdrant-x86_64-pc-windows-msvc
+API_tokens
