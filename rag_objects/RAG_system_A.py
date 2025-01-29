@@ -53,7 +53,7 @@ class RAGSystemA:
         norms = np.linalg.norm(vectors, axis=1, keepdims=True)
         return vectors / norms
 
-    def query(self, user_query, max_text=500, top_k=5):
+    def query(self, user_query, max_text=150, top_k=5, summarize = False):
         """
         Query the system and retrieve a summarized response from the LLM.
 
@@ -72,14 +72,16 @@ class RAGSystemA:
                   - 'total_tokens': Total tokens used in the LLM response.
                   - 'prompt_tokens': Tokens used for the prompt in the LLM response.
         """
-        start_time = time.time()
+        query_embedding_start_time = time.perf_counter()
 
         # Step 1: Convert query to embedding
         query_vector = self.model.encode([user_query]).astype("float32")
         query_vector = self.normalize(query_vector)
+        
+        query_embedding_time = time.perf_counter() - query_embedding_start_time
 
         # Step 2: Retrieve top-k results
-        retrieval_start_time = time.time()
+        retrieval_start_time = time.perf_counter()
         distances, indices = self.index.search(query_vector, top_k)
         results = []
 
@@ -91,38 +93,45 @@ class RAGSystemA:
             metadata = {
                 "title": metadata_row["title"],
                 "main_category": metadata_row["main_category"],
-                "subcategories": metadata_row["subcategories"],
+                "generated_text": metadata_row["generated_text"][:max_text],  # Limit text
                 "latitude": metadata_row["latitude"],
                 "longitude": metadata_row["longitude"],
-                "generated_text": metadata_row["generated_text"][:max_text],  # Limit text
+                
             }
             results.append(metadata)
-        retrieval_time = time.time() - retrieval_start_time
+        retrieval_time = time.perf_counter() - retrieval_start_time
 
         # Step 3: Generate LLM summary
-        generation_start_time = time.time()
+        generation_start_time = time.perf_counter()
         context = "\n".join(
             [f"Title: {item['title']}, Category: {item['main_category']}, Text: {item['generated_text']}"
              for item in results]
         )
 
         prompt = f"User Query: {user_query}\n\nLocations:\n{context}\n\nPlease summarize these locations for the user."
+        if(summarize):
+            response = self.llm_model.generate_content(prompt)
+        else:
+            response = ""
+        generation_time = time.perf_counter() - generation_start_time
+        
+        if(summarize):
+            # Extract token usage
+            total_tokens = response.usage_metadata.total_token_count
+            prompt_tokens = response.usage_metadata.prompt_token_count
+            llm_out = response.text
+        else:
+            total_tokens = 0
+            prompt_tokens = 0
+            llm_out = ""
 
-        response = self.llm_model.generate_content(prompt)
-        generation_time = time.time() - generation_start_time
-
-        # Extract token usage
-        total_tokens = response.usage_metadata.total_token_count
-        prompt_tokens = response.usage_metadata.prompt_token_count
-
-        total_time = time.time() - start_time
-
+        
         return {
             "locations": results,
-            "response": response.text,
+            "response": llm_out,
+            "query_embedding_time": query_embedding_time,
             "retrieval_time": retrieval_time,
-            "generation_time": generation_time,
-            "total_time": total_time,
-            "total_tokens": total_tokens,
-            "prompt_tokens": prompt_tokens
+            "summary_generation_time": generation_time,
+            "summary_total_tokens": total_tokens,
+            "summary_prompt_tokens": prompt_tokens
         }
