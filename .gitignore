@@ -1,6 +1,7 @@
 nl_full_all_columns.csv
-*.csv
+small_test.csv
 qdrant-x86_64-pc-windows-msvc
+csv_saves
 API_tokens
 *.index
 *.json

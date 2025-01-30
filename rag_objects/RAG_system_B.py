@@ -55,7 +55,7 @@ class RAGSystemB:
             "You are part of a RAG system in an app with audio guides for various locations. "
             "You will receive the user query and a list of retrieved locations. Your task is to "
             "select 8 locations best matching the query. Output them as a simple list of "
-            "titles. E.g. [title1, title2, title3]."
+            "titles. E.g. [title1, title2, title3]. Always choose 8 locations, regardless of the input."
         )
         self.llm_checker = genai.GenerativeModel(
             model_name=checker_model_name,
@@ -71,7 +71,7 @@ class RAGSystemB:
         norms = np.linalg.norm(vectors, axis=1, keepdims=True)
         return vectors / norms
 
-    def query(self, user_query, max_text=150, top_k=5, summarize=True):
+    def query(self, user_query, max_text=150, top_k=5, summarize=False):
         """
         Query the system and retrieve a summarized response from the LLM.
         """
@@ -113,7 +113,7 @@ class RAGSystemB:
             f'User query: "{user_query}"\n'
             f"Locations:\n{locations_as_str}\n\n"
         )
-        print(checker_prompt)
+        #print(checker_prompt)
         checker_response_obj = self.llm_checker.generate_content(checker_prompt)
         checker_time = time.perf_counter() - checker_start_time
 
